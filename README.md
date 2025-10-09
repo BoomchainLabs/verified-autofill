@@ -182,12 +182,12 @@ Following is an example `.well-known/email-verification` file
 }
 ```
 
-- **3.4** - the browser generates a private / public key and signs a JWT with the private key that has the public key in the JWT header in the JWK format as a `jwk` claim, and contains the following claims in the payload:
+- **3.4** - the browser generates a private / public key and signs a JWT with the private key that has the public key in the JWT header in the JWK format as a `jwk` claim, generates a cryptographically secure random salt of at least 16 bytes, computes a SHA-256 hash of the salt prepended to the nonce, and contains the following claims in the payload:
 
   - *aud* - the issuer
   - *iat* - time when the JWT was signed
   - *jti* - unique identifier for the token
-  - *nonce* - nonce provided by the RP
+  - *nonce_hash* - hash of nonce provided by the RP in base64url
   - *email* - email address to be verified 
 
 The browser SHOULD select an algorithm from the issuer's `signing_alg_values_supported` array, or use "EdDSA" if the property is not present.
@@ -211,7 +211,7 @@ An example payload
 {
   "aud": "issuer.example",
   "iat": 1692345600,
-  "nonce": "259c5eae-486d-4b0f-b666-2a5b5ce1c925",
+  "nonce_hash": "X9yH0Ajrdm1Oij4tWso9UzzKJvPoDxwmuEcO3XAdRC0",
   "email": "user@example.com"
 }
 ```
@@ -241,7 +241,7 @@ On receipt of a token request:
 - **4.2** - the issuer MUST verify the request_token by:
 
   - parsing the JWT into header, payload, and signature components
-  - confirming the presence of, and extracting the `jwk` and `alg` fields from the JWT header, and the `aud`, `iat`, `email`, and `nonce` claims from the payload
+  - confirming the presence of, and extracting the `jwk` and `alg` fields from the JWT header, and the `aud`, `iat`, `email`, and `nonce_hash` claims from the payload
   - verifying the JWT signature using the `jwk` with the `alg` algorithm
   - verifying the `aud` claim exactly matches the issuer's identifier
   - verifying the `iat` claim is within 60 seconds of the current time
@@ -260,6 +260,7 @@ On receipt of a token request:
     - `cnf`: confirmation claim containing the public key from the request_token's `jwk` field
     - `email`: claim containing the email address from the request_token
     - `email_verified`: claim that email is verified per OpenID Connect 1.0
+    - `nonce_hash`: the `nonce_hash` value provided in the `request_token`
   - **Signature**: MUST be signed with the issuer's private key corresponding to a public key in the `jwks_uri` identified by `kid`
 
 
@@ -383,13 +384,15 @@ On receiving the `issuance_token`:
 - **5.1** - the browser MUST verify the SD-JWT per (SD-JWT spec) by:
 
   - parsing the SD-JWT into header, payload, and signature components
-  - confirming the presence of, and extracting the `alg` and `kid` fields from the SD-JWT header, and the `iss`, `iat`, `cnf`, `email`, and `email_verified` claims from the payload
+  - confirming the presence of, and extracting the `alg` and `kid` fields from the SD-JWT header, and the `iss`, `iat`, `cnf`, `nonce_hash`, `email`, and `email_verified` claims from the payload
   - parsing the email domain from the `email` claim and looking up the `TXT` record for `_email-verification.$EMAIL_DOMAIN` to verify the `iss` claim matches the issuer identifier in the DNS record
   - fetching the issuer's public keys from the `jwks_uri` specified in the `.well-known/email-verification` file
   - verifying the SD-JWT signature using the public key identified by `kid` from the JWKS with the `alg` algorithm
   - verifying the `iat` claim is within 60 seconds of the current time
+  - verifying the `nonce_hash` claim matches the `nonce_claim` provided
   - verifying the `email` claim matches the email address the user selected
   - verifying the `email_verified` claim is true
+
 
 - **5.2** - the browser then creates an SD-JWT+KB by:
 
@@ -401,6 +404,7 @@ On receiving the `issuance_token`:
     - **Payload**:
       - `aud`: the RP's origin
       - `nonce`: the nonce from the original `navigator.credentials.get()` call
+      - `salt`: the salt used to create the `nonce_hash` in base64url encoding
       - `iat`: current time when creating the KB-JWT
       - `sd_hash`: SHA-256 hash of the SD-JWT
   - signing the KB-JWT with the browser's private key (the same key pair generated in step 3.4)
@@ -419,6 +423,7 @@ On receiving the `issuance_token`:
   {
     "aud": "https://rp.example",
     "nonce": "259c5eae-486d-4b0f-b666-2a5b5ce1c925",
+    "salt": "kR7fY9mP3xQ8wN2vL5jH6tZ1cB4nM9sD8fG3hJ7kL2p",
     "iat": 1724083260,
     "sd_hash": "X9yH0Ajrdm1Oij4tWso9UzzKJvPoDxwmuEcO3XAdRC0"
   }
@@ -457,6 +462,7 @@ The RP server MUST verify the SD-JWT+KB by:
   - verifying the `iss` claim exactly matches the issuer identifier from the DNS record
   - verifying the `iat` claim is within a reasonable time window
   - verifying the `email_verified` claim is true
+  - generating the `nonce_hash` with the `salt` and `nonce` just as the browser did, and verifying it matches the `nonce_hash` in the SD-JWT
 
 - **6.5** - the RP verifies the KB-JWT signature using the public key from the `cnf` claim in the SD-JWT with the `alg` algorithm from the KB-JWT header
 
