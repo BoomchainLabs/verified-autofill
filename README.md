@@ -476,3 +476,23 @@ The RP server MUST verify the SD-JWT+KB by:
 2. The RP can infer if a user is logged into the issuer as the RP receives a SD-JWT when the user is logged in, and does not when the user is not logged in. 
 
 3. The issuer may learn the user has email at a mail domain it is authoritative for that it did not know the user had.
+
+# Alternatives Under Consideration 
+
+## JS API for Providing the Email
+
+The web page would call an API passing the email address and nonce. It would return a promise that resolves to the SD_JWT or an error response. The API would only be callable after a user gesture such as clicking a button labelled verify on the web page. This provides the web page in more flexibility in how to gather the email address. For example, if the web page is using EVP for login, and the user has used different emails for login and those are stored in cookies, the page can display the list of emails and an option to provide a different one. The user can then select the email they want to use rather than having to type it into a text field.
+
+## Passkey Authentication 
+
+In addition to, or instead of the browser sending cookies to the Issuer, the Issuer could return a WebAuthN request to the browser if it has credentials for the user identified by the email address. The browser would then interact with the user and provide the WebAuthN response to the Issuer, authenticating the user, and the Issuer would then return the SD-JWT.
+
+# Alternatives Considered 
+
+## Use .wellknown for Mail Domain delegation to Issuer
+
+Rather than the DNS TXT record, the Mail Domain would host a JSON file in the .wellknown domain. This creates challenges for the long tail of individually owned domains:
+
+- would require a domain that is used just for email to now have to support a web server
+- the mail domain is usually an apex domain, which does not support CNAME, complicating hosting a web site
+
