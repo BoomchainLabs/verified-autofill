@@ -5,7 +5,7 @@ These are instructions on how to test EVP in Chrome:
 # Setup
 
 1. Install [chrome canaries](https://www.google.com/chrome/canary/)
-2. Go to `chrome://flags/`, search for `FedCM with delegation support` and enable `#fedcm-delegation`. Restart the browser.
+2. Go to `chrome://flags/`, search for `Email Verification Protocol` and enable `#email-verification-protocol`. Restart the browser.
 3. Go to `chrome://version` and make sure you are in 145+ (e.g. `145.0.7568.0 (Official Build) canary (arm64)`).
 4. Go to `chrome://settings/addresses` and make sure an email address from a domain that supports EVP is present there. If not, add it.
 5. Make sure you are logged in to the domain of your email address.
